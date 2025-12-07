@@ -1,0 +1,24 @@
+1. Print statements are not probably the cleanest way , especially when within
+a class, a class should only provide the logical framework, not the TUI or error
+log direct-print statements , something else should be done in its place
+
+2. clean up the code a bit more. the TaskManager class may need more
+scalability in the future
+
+=============== FUTURE ROADMAP ==============================================
+
+1. Graphs. DSA. DBMS, move away from JSON.
+
+2. Saving the entire task list each time now. impractical, again its a DBMS
+thing.
+
+3. Reliability
+
+4. Cross-platform Compatibility
+
+5. Cross-platform Cloud - hosting storage might be tricky.
+
+6. after DSA - custom AI.
+
+7. after necessary AI, custom GUI
+
