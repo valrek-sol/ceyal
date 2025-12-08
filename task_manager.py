@@ -2,6 +2,7 @@ import datetime as dt
 from enum import Enum
 import uuid
 import json
+import shutil
 
 class TaskStatus(str, Enum):
     PENDING = "pending" 
@@ -127,6 +128,11 @@ class TaskManager:
         return True
 
     def save_tasks(self):
+        try:
+            shutil.copy(self.db_file, self.db_file + ".bak")
+        except FileNotFoundError:
+            pass
+
         data_write = {tid: t.to_dict() for tid, t in self.tasks.items()}
         with open(self.db_file, 'w') as f:
             json.dump(data_write, f, indent=4)
