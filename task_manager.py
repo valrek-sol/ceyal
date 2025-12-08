@@ -3,6 +3,27 @@ from enum import Enum
 import uuid
 import json
 import shutil
+import os
+import sys
+from pathlib import Path
+
+APP_NAME = "ceyal"
+
+def get_default_db_path():
+    if sys.platform.startswith("linux"):
+        data_home = os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
+    elif sys.platform == "darwin":
+        data_home = Path.home() / "Library" / "Application Support"
+    elif sys.platform.startswith("win"):
+        data_home = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        data_home = Path.home()  # fallback
+    
+    app_data_dir = Path(data_home) / APP_NAME
+    app_data_dir.mkdir(parents=True, exist_ok=True)
+    return app_data_dir/"tasks.json"
+
+DB_FILE_PATH_DEFAULT = get_default_db_path()
 
 class TaskStatus(str, Enum):
     PENDING = "pending" 
@@ -112,7 +133,7 @@ class Task:
         return task
 
 class TaskManager:
-    def __init__(self, db_file="tasks.json"):
+    def __init__(self, db_file=DB_FILE_PATH_DEFAULT):
         self.tasks = {}
         self.db_file = db_file
 
@@ -129,7 +150,8 @@ class TaskManager:
 
     def save_tasks(self):
         try:
-            shutil.copy(self.db_file, self.db_file + ".bak")
+            backup_path = self.db_file.with_suffix(self.db_file.suffix + ".bak")
+            shutil.copy(self.db_file, backup_path)
         except FileNotFoundError:
             pass
 
