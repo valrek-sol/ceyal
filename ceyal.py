@@ -14,7 +14,7 @@ def parse_datetime(datetime_str):
         try:
             return dt.datetime.strptime(datetime_str, "%Y-%m-%d")
         except ValueError:
-            print(f"Error: Could not parse date '{datetime_str}'. Use 'YYYY-MM-DD' or ISO format.")
+            print(f"Error: Could not parse date '{datetime_str}'. Use 'YYYY-MM-DDTHH:mm:ss.sssZ' or ISO 8601 format.")
             sys.exit(1)
 
 def find_task_by_partial(tm, partial_id):
