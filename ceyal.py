@@ -80,12 +80,14 @@ def handle_get(args, tm):
     print(f"Status:  {task.status.value.upper()}")
     
     if args.verbose and args.verbose > 0:
-        print(f"Desc:    {task.desc}")
+        print(f"Description:    {task.desc}")
         print(f"Created: {task.created_time}")
         print(f"Target:  {task.target_time}")
-        print(f"Active:  {task.active_time:.2f} sec")
-    print("="*34 + "\n")
+        print(f"Dead: {task.dead_time}")
+        print(f"Active:  {task.active_time:.3f} secs")
+        print(f"Elapsed: {task.elapsed_time:.3f} secs")
 
+    print("="*34 + "\n")
 
 def main():
     parser = argparse.ArgumentParser(
