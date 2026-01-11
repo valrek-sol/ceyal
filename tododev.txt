@@ -1,3 +1,28 @@
++parameters 
+name 
+id
+status
+desc
+created_time
+target_time
+dead_time
+elapsed_time
+active_time
+
+start_times
+pause_times
+
+
+CURRENT
++++++++
+
+1. add ability to fetch every task parameter(attribute) via cli arguments [DONE]
+2. add more colors
+3. add a Goal class - new functionality
+4. add a new Database for long term Goals
+
+
+=======
 1. Print statements are not probably the cleanest way , especially when within
 a class, a class should only provide the logical framework, not the TUI or error
 log direct-print statements , something else should be done in its place
@@ -22,3 +47,4 @@ thing.
 
 7. after necessary AI, custom GUI
 
+8. Custom CLI parser, argparse != git level parsing

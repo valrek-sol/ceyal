@@ -105,6 +105,10 @@ class Task:
             active_t += (dt.datetime.now() - self.start_times[-1]).total_seconds()
         return active_t
 
+    @property
+    def start_time(self):
+        return self.start_times[0] if self.start_times else None
+
     def to_dict(self):
         return {
             "name": self.name, "id": self.id,

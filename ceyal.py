@@ -5,6 +5,7 @@ import sys
 import datetime as dt
 from task_manager import TaskManager, TaskStatus
 
+AVAILABLE_PARAMETERS = ["desc","created","target","dead","elapsed","active","start"]
 def parse_datetime(datetime_str):
     if not datetime_str:
         return None
@@ -79,6 +80,27 @@ def handle_get(args, tm):
     print(f"ID:      {task.id}")
     print(f"Status:  {task.status.value.upper()}")
     
+    if args.parameters is not None:
+        print('\n')
+        if args.parameters == 'desc':
+            print(f"Description:    {task.desc}")
+        elif args.parameters == 'created':
+            print(f"Created: {task.created_time}")
+        elif args.parameters == 'target':
+            print(f"Target:  {task.target_time}")
+        elif args.parameters == 'dead':
+            print(f"Dead: {task.dead_time}")
+        elif args.parameters == 'active':
+            print(f"Active:  {task.active_time:.3f} secs")
+        elif args.parameters == 'elapsed':
+            print(f"Elapsed: {task.elapsed_time:.3f} secs")
+        elif args.parameters == 'start':
+            if task.start_times:
+                print(f"Start:   {task.start_time}")
+            else:
+                print(f"Start: Task not Started Yet")
+        print('\n')
+
     if args.verbose and args.verbose > 0:
         print(f"Description:    {task.desc}")
         print(f"Created: {task.created_time}")
@@ -86,6 +108,10 @@ def handle_get(args, tm):
         print(f"Dead: {task.dead_time}")
         print(f"Active:  {task.active_time:.3f} secs")
         print(f"Elapsed: {task.elapsed_time:.3f} secs")
+        if task.start_times:
+            print(f"Start:   {task.start_time}")
+        else:
+            print(f"Start: Task not Started Yet")
 
     print("="*34 + "\n")
 
@@ -136,8 +162,11 @@ def main():
 
     get_p = subparsers.add_parser('get', help = "View a Task")
     get_p.add_argument('id', type = str, help = "Task ID")
+    get_p.add_argument('parameters', type = str, nargs = '?', choices = AVAILABLE_PARAMETERS , help = "get specific details about a task")
     get_p.add_argument('-v','--verbose', action = 'count', help = "View details")
     get_p.set_defaults(func=handle_get)
+
+    
     
     args = parser.parse_args()
 
