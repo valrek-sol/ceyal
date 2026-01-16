@@ -199,10 +199,11 @@ class TaskManager:
             if not show_all and not filter_status and task.status == TaskStatus.COMPLETED:
                 continue
 
-            #color coding ANSI escape codes
+            #color coding ANSI escape codes [bright]
             status_color = ""
             if task.status == TaskStatus.ONGOING: status_color = "\033[94m" # Blue
             elif task.status == TaskStatus.COMPLETED: status_color = "\033[92m" # Green
+            elif task.status == TaskStatus.PENDING: status_color = "\033[91m" # Red
             elif task.status == TaskStatus.PAUSED: status_color = "\033[93m" # Yellow
             reset = "\033[0m"
 
