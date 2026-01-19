@@ -5,7 +5,7 @@ import sys
 import datetime as dt
 from task_manager import TaskManager, TaskStatus
 
-AVAILABLE_PARAMETERS = ["desc","created","target","dead","elapsed","active","start"]
+AVAILABLE_PARAMETERS = ["desc","created","target","dead","elapsed","active","start","pause"]
 def parse_datetime(datetime_str):
     if not datetime_str:
         return None
@@ -99,6 +99,11 @@ def handle_get(args, tm):
                 print(f"Start:   {task.start_time}")
             else:
                 print(f"Start: Task not Started Yet")
+        elif args.parameters == 'pause':
+            if task.pause_times:
+                print(f"Last pause:   {task.last_pause_time}")
+            else:
+                print(f"Last pause: Task not Started Yet")
         print('\n')
 
     if args.verbose and args.verbose > 0:
@@ -112,6 +117,10 @@ def handle_get(args, tm):
             print(f"Start:   {task.start_time}")
         else:
             print(f"Start: Task not Started Yet")
+        if task.pause_times:
+            print(f"Last pause:   {task.last_pause_time}")
+        else:
+            print(f"Last pause: Task not Started Yet")
 
     print("="*34 + "\n")
 

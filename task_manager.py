@@ -109,6 +109,10 @@ class Task:
     def start_time(self):
         return self.start_times[0] if self.start_times else None
 
+    @property
+    def last_pause_time(self):
+        return self.pause_times[-1] if self.pause_times else None
+
     def to_dict(self):
         return {
             "name": self.name, "id": self.id,
