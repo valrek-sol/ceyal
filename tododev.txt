@@ -16,7 +16,7 @@ pause_times
 CURRENT
 +++++++
 
-1. add ability to fetch every task parameter(attribute) via cli arguments [DONE]
+1. add sub task function
 2. add more colors
 3. add a Goal class - new functionality
 4. add a new Database for long term Goals
