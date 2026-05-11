@@ -1,50 +1,33 @@
-+parameters 
-name 
-id
-status
-desc
-created_time
-target_time
-dead_time
-elapsed_time
-active_time
+parameters-reference
+++++++++++
 
-start_times
-pause_times
+name : name of the task 
+id : id (uuid4 hex) of the single task 
+status* : status of the task
+desc : description of the task
+created_time : task creation timestamp
+target_time : task target completion time
+dead_time : final deadline of the task
+elapsed_time* : total time spent from start of the task till now
+active_time* : total time spent actively on the task from the start, excluding paused times
+start_times : array of timestamps of start/resume of tasks
+pause_times : array of timestamps of pause of tasks
 
 
 CURRENT
 +++++++
 
-1. add sub task function
-2. add more colors
-3. add a Goal class - new functionality
-4. add a new Database for long term Goals
+1. Change Data Structure to Tree / DAG for infinitely stacked tasks (goals, tasks, subtasks)
+2. Change Data Storage to SQLite
+3. Gantt chart representation suitable
+4. Categories (clusters) assignment.
 
+FUTURE
+++++++
 
-=======
-1. Print statements are not probably the cleanest way , especially when within
-a class, a class should only provide the logical framework, not the TUI or error
-log direct-print statements , something else should be done in its place
-
-2. clean up the code a bit more. the TaskManager class may need more
-scalability in the future
-
-=============== FUTURE ROADMAP ==============================================
-
-1. Graphs. DSA. DBMS, move away from JSON.
-
-2. Saving the entire task list each time now. impractical, again its a DBMS
-thing.
-
-3. Reliability
-
-4. Cross-platform Compatibility
-
-5. Cross-platform Cloud - hosting storage might be tricky.
-
-6. after DSA - custom AI.
-
-7. after necessary AI, custom GUI
-
-8. Custom CLI parser, argparse != git level parsing
+1. Decentralized offline synchronization system for cross-platform access. Involves app development
+2. notification system 
+3. Specialized clusters (eg : chores are daily)
+4. UI 
+5. AI integration : subtask suggestion via task context awareness.
+6. AI integration : domain knowledge expert integration on suggestion and modification

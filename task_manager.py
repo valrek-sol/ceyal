@@ -93,11 +93,19 @@ class Task:
 
     @property
     def elapsed_time(self):
+        '''
+        Time interval "elapsed" from the very start till "now".
+        Includes paused time intervals.
+        '''
         if not self.start_times: return 0.0
         return (dt.datetime.now() - self.start_times[0]).total_seconds()
 
     @property
     def active_time(self):
+        '''
+        Time interval "active" from start to "now",
+        excluding paused time intervals.
+        '''
         active_t = 0.0
         for start, pause in zip(self.start_times, self.pause_times):
             active_t += (pause - start).total_seconds()
