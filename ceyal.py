@@ -127,7 +127,7 @@ def handle_get(args, tm):
 def main():
     parser = argparse.ArgumentParser(
             prog = 'ceyal',
-            description = " ++ ++ A task manager application ++ ++ "
+            description = " ++ ++ A task manager application (wip)++ ++ "
             )
     subparsers = parser.add_subparsers(
             dest = 'command',

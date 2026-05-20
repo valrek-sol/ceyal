@@ -45,6 +45,10 @@ class Task:
         self.start_times = []
         self.pause_times = []
         self.is_complete = False
+        # new params
+        self.target_start_time = dt.datetime.now() #placeholder
+        self.is_locked = False
+        self.priority = 1
 
     @property
     def is_running(self):
