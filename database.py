@@ -2,6 +2,7 @@ import sqlite3
 import os
 import sys
 from pathlib import Path
+from collections import namedtuple
 
 APP_NAME = "ceyal"
 
@@ -20,6 +21,17 @@ def get_default_db_path():
     return app_data_dir/"ceyal.db"
 
 DB_FILE_PATH_DEFAULT = get_default_db_path()
+
+ALLOWED_MODIFIABLE_PARAMS = {"name", "description", "target_start_time", "target_time", "created_time", "dead_time", "is_complete", "priority" }
+
+task_parameters = ["id","name","description","target_start_time","target_time","created_time","dead_time","is_complete","priority"]
+TaskRow = namedtuple("TaskRow", task_parameters)
+
+timestamp_parameters = ["event_id","task_id","event_type","timestamp"]
+TimestampRow = namedtuple("TimestampRow", timestamp_parameters)
+
+task_relations_parameters = ["super_task_id","sub_task_id"]
+TaskRelationsRow = namedtuple("TaskRelationsRow",task_relations_parameters)
 
 # Tasks Schema
 TASKS_SCHEMA_CREATE_QUERY = """
@@ -73,7 +85,8 @@ class DatabaseManager:
 
     def _initialize_tables(self):
         with sqlite3.connect(self.db_file) as temp_con:
-            temp_con.execute("PRAGMA foreign_keys = ON") # necessary it seems from docs 
+            # necessary it seems from docs , not sure if temp also needs it 
+            temp_con.execute("PRAGMA foreign_keys = ON") 
             temp_con.execute(TASKS_SCHEMA_CREATE_QUERY)
             #temp_con.execute(TASKS_RELATIONS_SCHEMA_CREATE_QUERY)
             temp_con.execute(TASKS_TIMESTAMPS_SCHEMA_CREATE_QUERY)
@@ -81,7 +94,10 @@ class DatabaseManager:
 
     def __enter__(self):
         self._active_con = sqlite3.connect(self.db_file)
+        self._active_con.execute("PRAGMA foreign_keys = ON")
         self.cur = self._active_con.cursor()
+
+        return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self._active_con:
@@ -95,7 +111,13 @@ class DatabaseManager:
             self._active_con.close()
             self._active_con = None
 
-    def create_task(self, task_args):
+    def create_task(self, task: list[TaskRow]): 
+        """
+        Add a batch of tasks or a single task to the Tasks table.
+
+        Args:
+            task: list of namedtuples[TaskRow]/tuples all parameters of a task.
+        """
 
         # keep these queries in or outside this? 
         TASK_INSERT_QUERY = """
@@ -104,35 +126,93 @@ class DatabaseManager:
         VALUES
         (?,?,?,?,?,?,?,?,?);
         """
-        self.cur.executemany(TASK_INSERT_QUERY, task_args)
 
-    def delete_task_by_id(self, task_id):
+        self.cur.executemany(TASK_INSERT_QUERY, task)
+
+    def delete_task_by_id(self, task_ids: list[tuple[str]]):
+        """
+        Delete a task, or a bunch of tasks using their ids.
+
+        Args:
+            task_ids: list of tuple containing the id of the task ; 
+                hex in the form of a string. 
+                Examples : [("ab32bf66...",),("afee88...",)]
+        """
 
         TASK_DELETE_QUERY = """
         DELETE FROM Tasks
         WHERE id = ? ;
         """
-        self.cur.executemany(TASK_DELETE_QUERY, task_id)
+        self.cur.executemany(TASK_DELETE_QUERY, task_ids)
 
-    def fetch_task(self, task_id):
-        
-        TASK_VIEW_QUERY = """
+    def fetch_task_by_id(self, task_ids: list[tuple[str]]) -> list[TaskRow]:
+        """
+        Fetch a task, or a bunch of tasks using their ids.
+
+        Args:
+            task_ids: list of tuple containing the id of the task ; 
+                hex in the form of a string.
+                Examples : [("ab32bf66...",),("afee88...",)]
+        Returns:
+            A list of TaskRow namedtuples with the parameters of the task.
+        """
+ 
+        placeholder = ",".join("?"*len(task_ids))
+        TASK_VIEW_QUERY = f"""
         SELECT * FROM Tasks
-        WHERE id = ?;
+        WHERE id IN ({placeholder}) ;
         """
-        res = self.cur.execute(TASK_VIEW_QUERY, task_id)
-        return res.fetchall()
+        res = self.cur.execute(TASK_VIEW_QUERY, [tid for (tid,) in task_ids])
+        return [TaskRow(*row) for row in res.fetchall()]
+
+    def fetch_all_tasks(self) -> list[TaskRow]:
+        """
+        Fetch all task details.
+
+        Returns:
+            Full list of TaskRow namedtuples with the parameters of the task
+                from database.
+        """
+
+        TASKS_VIEW_QUERY = """
+        SELECT * FROM Tasks;
+        """
+
+        res = self.cur.execute(TASKS_VIEW_QUERY)
+        return [TaskRow(*row) for row in res.fetchall()]
     
-    def modify_task(self, task_id, task_param, task_arg):
-
-        TASK_MODIFY_QUERY = """
-        UPDATE Tasks
-        SET ? = ?
-        WHERE id = ?
+    def modify_task(self, task_ids: list[tuple[str]], task_update_values: list[tuple[str,str]]):
         """
-        self.cur.execute(TASK_MODIFY_QUERY, (task_param, task_arg, task_id) ) 
+        Modify task (same set of) parameter values for single or multiple task_ids.
 
-    def task_event_entry(self, task_id, event_type, timestamp):
+        Args:
+            task_ids: list of tuple containing the id of the task ; 
+                hex in the form of a string.
+                Examples : [("ab32bf66...",),("afee88...",)]
+            task_update_values: contain [(parameter to be modified, parameter value),...] 
+        """
+
+        for (task_param,task_arg_new) in task_update_values:
+            if task_param not in ALLOWED_MODIFIABLE_PARAMS:
+                raise ValueError(f"[DATABASE] PARAMETER {task_param} is NOT ALLOWED TO BE MODIFIED")
+            TASK_MODIFY_QUERY = f"""
+            UPDATE Tasks
+            SET {task_param} = ?
+            WHERE id = ? ;
+            """
+            self.cur.executemany(TASK_MODIFY_QUERY, [(task_arg_new, tid) for (tid,) in task_ids] ) 
+
+    def task_event_entry(self, task_ids: list[tuple[str]], event_type: str, timestamp: str):
+        """
+        Registers a event (start/pause/resume/complete) in the database for a task or multiple tasks.
+
+        Args:
+            task_ids: list of tuple containing the id of the task ; 
+                hex in the form of a string.
+                Examples : [("ab32bf66...",),("afee88...",)]
+            event_type: start/pause/resume/complete
+            timestamp: datetime in string.
+        """
 
         TASK_EVENT_ENTRY_QUERY = """
         INSERT INTO TasksTimestamps
@@ -140,24 +220,42 @@ class DatabaseManager:
         VALUES
         (?,?,?);
         """
-        self.cur.execute(TASK_EVENT_ENTRY_QUERY, (task_id, event_type, timestamp))
+        self.cur.executemany(TASK_EVENT_ENTRY_QUERY, [(tid, event_type, timestamp) for (tid,) in task_ids])
 
-    def delete_database(self):
+    def fetch_task_events(self, task_ids: list[tuple[str]]):
+        """
+        Fetches events for the task_id given.
 
-        DELETE_DATABASE_QUERY = """
-        DROP TABLE IF EXISTS TasksRelations, TasksTimestamps, Tasks;
+        Args:
+            task_ids: list of tuple containing the id of the task ; 
+                hex in the form of a string.
+                Examples : [("ab32bf66...",),("afee88...",)]
         """
 
-        self.cur.execute(DELETE_DATABASE_QUERY)
+        placeholder = ",".join("?"*len(task_ids))
+        TASK_VIEW_EVENTS_QUERY = f"""
+        SELECT * FROM TasksTimestamps
+        WHERE task_id IN ({placeholder}) ;
+        """
+        res = self.cur.execute(TASK_VIEW_EVENTS_QUERY,[tid for (tid,) in task_ids])
+        return [TimestampRow(*row) for row in res.fetchall()]
 
+    def fetch_all_tasks_events(self):
+        """
+        Fetches events for all task_ids there is.
+        """
+        
+        TASKS_VIEW_ALL_EVENTS_QUERY = """
+        SELECT * FROM TasksTimestamps;
+        """
+        res = self.cur.execute(TASKS_VIEW_ALL_EVENTS_QUERY)
+        return [TimestampRow(*row) for row in res.fetchall()]
 
+    def delete_database(self):
+        """
+        Use with caution. Deletes the entire database along with the schema.
+        """
 
-### TESTING CODE <><><>
-if __name__ == "__main__":
-    task_params = [( "ab32", "attain nuclear fission" , "use thorium" , "5:30 am ust", "NEIN", "NEIN" , "NEIN" , True, 0 )]
-    # seems executemany() likes a proper list. sending a 1D tuple breaks it (thinks ab32 is a tuple within it and iterates through it).
-    db = DatabaseManager()
-    task_id = ("ab32",)
-
-    with db: # if want "as" , use __enter__ with return self statement... pythonic much? 
-        db.fetch_task(task_id)
+        self.cur.execute("DROP TABLE IF EXISTS TasksRelations;")
+        self.cur.execute("DROP TABLE IF EXISTS TasksTimestamps;")
+        self.cur.execute("DROP TABLE IF EXISTS Tasks;")
