@@ -3,131 +3,156 @@
 import argparse
 import sys
 import datetime as dt
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+
 from task_manager import TaskManager, TaskStatus
 
-AVAILABLE_PARAMETERS = ["desc","created","target","dead","elapsed","active","start","pause"]
-def parse_datetime(datetime_str):
-    if not datetime_str:
+console = Console()
+
+AVAILABLE_PARAMETERS = ["desc", "created", "target", "dead", "elapsed",
+                        "active", "start", "pause"]
+
+def parse_datetime(dateactive_t_str):
+    if not dateactive_t_str:
         return None
     try:
-        return dt.datetime.fromisoformat(datetime_str)
+        return dt.datetime.fromisoformat(dateactive_t_str)
     except ValueError:
         try:
-            return dt.datetime.strptime(datetime_str, "%Y-%m-%d")
+            return dt.datetime.strptime(dateactive_t_str, "%Y-%m-%d")
         except ValueError:
-            print(f"Error: Could not parse date '{datetime_str}'. Use 'YYYY-MM-DDTHH:mm:ss.sssZ' or ISO 8601 format.")
+            console.print(f"[bold red]Error:[/bold red] Could not parse date '{dateactive_t_str}'. Use 'YYYY-MM-DDTHH:mm:ss.sssZ' or ISO 8601 format.")
             sys.exit(1)
-
-def find_task_by_partial(tm, partial_id):
-    matches = [tid for tid in tm.tasks if tid.startswith(partial_id)]
-    
-    if len(matches) == 0:
-        print(f"Error: No task found starting with '{partial_id}'")
-        sys.exit(1)
-    elif len(matches) > 1:
-        print(f"Error: Ambiguous ID '{partial_id}'. Matches multiple tasks.")
-        sys.exit(1)
-    
-    return tm.get(matches[0])
 
 def handle_add(args, tm):
     t_time = parse_datetime(args.target)
     d_time = parse_datetime(args.dead)
-    # If no target provided, default to tomorrow
-    if not t_time:
-        t_time = dt.datetime.now() + dt.timedelta(days=1)
+    ts_time = parse_datetime(args.target_start_time)
         
-    tm.add(args.name, target_time=t_time, desc=args.desc, dead_time=d_time)
+    task = tm.add(name=args.name, target_start_time=ts_time, target_time=t_time,
+                  desc=args.desc, dead_time=d_time, priority=args.priority)
+    
+    console.print(f"[bold green] Task Added:[/bold green] {task.name}")
+    console.print(f"  [dim]ID:[/dim] {task.id}")
 
 def handle_list(args, tm):
-    if args.ongoing:
-        tm.list_all(filter_status=TaskStatus.ONGOING)
+    tasks = tm.list_all_tasks()
+    
+    if not tasks:
+        console.print("[yellow]No tasks found.[/yellow]")
+        return
+
+    table = Table(title="list of tasks", title_style="bold magenta", border_style="dim")
+    
+    table.add_column("ID", style="dim", width=7)
+    table.add_column("Status", justify="center", width=12)
+    table.add_column("Name", style="bold white")
+    table.add_column("Active Time", justify="right", style="cyan")
+    
+    count = 0
+    for row in tasks:
+        task = tm.get_task(row.id)
+        
+        if args.pending and task.status != TaskStatus.PENDING:
+            continue
+        if args.ongoing and task.status != TaskStatus.ONGOING:
+            continue
+        if args.paused and task.status != TaskStatus.PAUSED:
+            continue
+        if args.completed and task.status != TaskStatus.COMPLETED:
+            continue
+        if not args.all and task.status == TaskStatus.COMPLETED:
+            continue
+            
+        status_str = task.status.value
+        if task.status == TaskStatus.ONGOING:
+            state = f"[bold blue]{status_str}[/bold blue]"
+        elif task.status == TaskStatus.COMPLETED:
+            state = f"[bold green]{status_str}[/bold green]"
+        elif task.status == TaskStatus.PENDING:
+            state = f"[bold red]{status_str}[/bold red]"
+        else:
+            state = f"[bold yellow]{status_str}[/bold yellow]"
+            
+        if task.active_time > 0:
+            active_mins = task.active_time / 60
+            active_t_str = f"{active_mins:.1f} m"
+        else:
+            active_t_str = "-"
+            
+        table.add_row(task.id[:6], state, task.name, active_t_str)
+        count += 1
+        
+    if count == 0:
+        console.print("[yellow]No tasks match your filters.[/yellow]")
     else:
-        tm.list_all(show_all=args.all)
+        console.print(table)
 
 def handle_remove(args, tm):
     if args.all:
-        confirm = input("Are you sure you want to DELETE ALL tasks? (y/n): ")
+        confirm = console.input("[bold red]Are you sure you want to DELETE ALL tasks? (y/n): [/bold red]")
         if confirm.lower() == 'y':
-            all_ids = list(tm.tasks.keys())
-            for tid in all_ids:
-                tm.remove(tid)
-            print("All tasks cleared.")
+            all_rows = tm.list_all_tasks()
+            for row in all_rows:
+                tm.remove_by_id(row.id)
+            console.print("[bold green]All tasks cleared.[/bold green]")
     else:
         if not args.id:
-            print("Error: Provide an ID or use --all")
+            console.print("[bold red]Error:[/bold red] Provide an ID or use --all")
             return
-        task = find_task_by_partial(tm, args.id)
-        tm.remove(task.id)
-        print(f"Removed task: {task.name}")
+        try:
+            task = tm.remove_by_id(args.id)
+            console.print(f"[bold green]Removed task:[/bold green] {task.name}")
+        except (KeyError, ValueError) as e:
+            console.print(f"[bold red]Error:[/bold red] {e}")
 
 def handle_state_change(args, tm):
-    task = find_task_by_partial(tm, args.id)
-    
-    if args.command == 'start':
-        task.start()
-    elif args.command == 'pause':
-        task.pause()
-    elif args.command == 'resume':
-        task.resume()
-    elif args.command == 'complete':
-        task.complete()
+    try:
+        if args.command == 'start':
+            task = tm.start_task(args.id)
+            console.print(f"[bold blue]▶ Started:[/bold blue] {task.name} ({task.id[:6]})")
+        elif args.command == 'pause':
+            task = tm.pause_task(args.id)
+            console.print(f"[bold yellow]⏸ Paused:[/bold yellow] {task.name} ({task.id[:6]})")
+        elif args.command == 'resume':
+            task = tm.resume_task(args.id)
+            console.print(f"[bold blue]▶ Resumed:[/bold blue] {task.name} ({task.id[:6]})")
+        elif args.command == 'complete':
+            task = tm.complete_task(args.id)
+            console.print(f"[bold green]✔ Completed:[/bold green] {task.name} ({task.id[:6]})")
+    except Exception as e:
+         console.print(f"[bold red]Error:[/bold red] {e}")
 
 def handle_get(args, tm):
-    task = find_task_by_partial(tm, args.id)
-    print(f"\n{'='*10} TASK DETAILS {'='*10}")
-    print(f"Name:    {task.name}")
-    print(f"ID:      {task.id}")
-    print(f"Status:  {task.status.value.upper()}")
-    
-    if args.parameters is not None:
-        print('\n')
-        if args.parameters == 'desc':
-            print(f"Description:    {task.desc}")
-        elif args.parameters == 'created':
-            print(f"Created: {task.created_time}")
-        elif args.parameters == 'target':
-            print(f"Target:  {task.target_time}")
-        elif args.parameters == 'dead':
-            print(f"Dead: {task.dead_time}")
-        elif args.parameters == 'active':
-            print(f"Active:  {task.active_time:.3f} secs")
-        elif args.parameters == 'elapsed':
-            print(f"Elapsed: {task.elapsed_time:.3f} secs")
-        elif args.parameters == 'start':
-            if task.start_times:
-                print(f"Start:   {task.start_time}")
-            else:
-                print(f"Start: Task not Started Yet")
-        elif args.parameters == 'pause':
-            if task.pause_times:
-                print(f"Last pause:   {task.last_pause_time}")
-            else:
-                print(f"Last pause: Task not Started Yet")
-        print('\n')
+    try:
+        task = tm.get_task(args.id)
+        
+        details = [
+            f"[dim]ID:[/dim] {task.id}",
+            f"[dim]Status:[/dim] [bold]{task.status.value.upper()}[/bold]",
+            f"[dim]Created:[/dim] {task.created_time}",
+            f"[dim]Target:[/dim] {task.target_time}",
+            f"[dim]Dead:[/dim] {task.dead_time or 'None'}",
+            f"[dim]Active Time:[/dim] {task.active_time:.1f} secs",
+            f"[dim]Elapsed Time:[/dim] {task.elapsed_time:.1f} secs"
+        ]
+        
+        if task.desc:
+            details.insert(2, f"[dim]Description:[/dim] {task.desc}")
+            
+        panel = Panel("\n".join(details), title=f"[bold cyan]{task.name}[/bold cyan]", border_style="cyan", expand=False)
+        console.print(panel)
+        
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
 
-    if args.verbose and args.verbose > 0:
-        print(f"Description:    {task.desc}")
-        print(f"Created: {task.created_time}")
-        print(f"Target:  {task.target_time}")
-        print(f"Dead: {task.dead_time}")
-        print(f"Active:  {task.active_time:.3f} secs")
-        print(f"Elapsed: {task.elapsed_time:.3f} secs")
-        if task.start_times:
-            print(f"Start:   {task.start_time}")
-        else:
-            print(f"Start: Task not Started Yet")
-        if task.pause_times:
-            print(f"Last pause:   {task.last_pause_time}")
-        else:
-            print(f"Last pause: Task not Started Yet")
-
-    print("="*34 + "\n")
 
 def main():
     parser = argparse.ArgumentParser(
             prog = 'ceyal',
-            description = " ++ ++ A task manager application (wip)++ ++ "
+            description = " ++ ++ Ceyal: Execution Engine ++ ++ "
             )
     subparsers = parser.add_subparsers(
             dest = 'command',
@@ -139,17 +164,22 @@ def main():
     add_p = subparsers.add_parser('add', help = "Create a New Task")
     add_p.add_argument('name', type = str, help = "Task Name")
     add_p.add_argument('-t','--target', type = str, help = "Target Time")
+    add_p.add_argument('-s','--target_start_time', type = str, help = "Target Start Time (suggested start time)")
     add_p.add_argument('-d','--desc', type = str, help = "Task Description")
+    add_p.add_argument('-p','--priority',type = int, help = "Assign Priority (natural numbers 1 to N)") 
     add_p.add_argument('--dead', type = str, help = "Dead Time")
     add_p.set_defaults(func=handle_add)   
 
     list_p = subparsers.add_parser('list', help = "List Tasks")
+    list_p.add_argument('-e','--pending', action = 'store_true', help = "List all pending Tasks")
     list_p.add_argument('-o','--ongoing', action = 'store_true', help = "List all ongoing Tasks")
+    list_p.add_argument('-p','--paused', action = 'store_true', help = "List all paused Tasks")
+    list_p.add_argument('-c','--completed', action = 'store_true', help = "List all completed Tasks")
     list_p.add_argument('-a','--all', action = 'store_true', help = "List all Tasks")
     list_p.set_defaults(func=handle_list)   
 
     remove_p = subparsers.add_parser('remove', help = "Remove a Task")
-    remove_p.add_argument('id', nargs='?', type = str, help = "Remove a task with ID") # Made optional for -a case
+    remove_p.add_argument('id', nargs='?', type = str, help = "Remove a task with ID")
     remove_p.add_argument('-a','--all', action = 'store_true', help = "Remove all Tasks")
     remove_p.set_defaults(func=handle_remove)   
     
@@ -174,8 +204,6 @@ def main():
     get_p.add_argument('parameters', type = str, nargs = '?', choices = AVAILABLE_PARAMETERS , help = "get specific details about a task")
     get_p.add_argument('-v','--verbose', action = 'count', help = "View details")
     get_p.set_defaults(func=handle_get)
-
-    
     
     args = parser.parse_args()
 

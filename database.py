@@ -2,7 +2,7 @@ import sqlite3
 import os
 import sys
 from pathlib import Path
-from collections import namedtuple
+from custom_types import TaskRow, TimestampRow, TaskRelationsRow
 
 APP_NAME = "ceyal"
 
@@ -23,15 +23,6 @@ def get_default_db_path():
 DB_FILE_PATH_DEFAULT = get_default_db_path()
 
 ALLOWED_MODIFIABLE_PARAMS = {"name", "description", "target_start_time", "target_time", "created_time", "dead_time", "is_complete", "priority" }
-
-task_parameters = ["id","name","description","target_start_time","target_time","created_time","dead_time","is_complete","priority"]
-TaskRow = namedtuple("TaskRow", task_parameters)
-
-timestamp_parameters = ["event_id","task_id","event_type","timestamp"]
-TimestampRow = namedtuple("TimestampRow", timestamp_parameters)
-
-task_relations_parameters = ["super_task_id","sub_task_id"]
-TaskRelationsRow = namedtuple("TaskRelationsRow",task_relations_parameters)
 
 # Tasks Schema
 TASKS_SCHEMA_CREATE_QUERY = """
@@ -165,23 +156,44 @@ class DatabaseManager:
         res = self.cur.execute(TASK_VIEW_QUERY, [tid for (tid,) in task_ids])
         return [TaskRow(*row) for row in res.fetchall()]
 
-    def fetch_all_tasks(self) -> list[TaskRow]:
+    def fetch_task_by_partial_id(self, partial_id: str) -> TaskRow:
+        """
+        Fetch a task using the incomplete id.
+
+        Args:
+            partial_id: string containing the incomplete id of the task  
+                Examples : ("ab32",)
+        Returns:
+            A TaskRow namedtuple with the parameters of the task.
+        """
+ 
+        TASK_VIEW_QUERY_SPL = f"""
+        SELECT * FROM Tasks
+        WHERE id LIKE ? ;
+        """
+        res = self.cur.execute(TASK_VIEW_QUERY_SPL, (f"{partial_id}%",)) 
+        return TaskRow(*(res.fetchone()))
+
+
+    def fetch_all_tasks(self, num_rows = None): 
         """
         Fetch all task details.
+
+        Args:
+            num_rows : number of rows to return. -1 for full list.
 
         Returns:
             Full list of TaskRow namedtuples with the parameters of the task
                 from database.
         """
 
-        TASKS_VIEW_QUERY = """
-        SELECT * FROM Tasks;
-        """
-
-        res = self.cur.execute(TASKS_VIEW_QUERY)
+        if num_rows:
+            res = self.cur.execute("SELECT * FROM Tasks LIMIT ?", (num_rows,))
+        else:
+            res = self.cur.execute("SELECT * FROM Tasks")
         return [TaskRow(*row) for row in res.fetchall()]
     
-    def modify_task(self, task_ids: list[tuple[str]], task_update_values: list[tuple[str,str]]):
+    def modify_task(self, task_ids: list[tuple[str]], task_update_values: list[tuple]):
         """
         Modify task (same set of) parameter values for single or multiple task_ids.
 
@@ -235,7 +247,8 @@ class DatabaseManager:
         placeholder = ",".join("?"*len(task_ids))
         TASK_VIEW_EVENTS_QUERY = f"""
         SELECT * FROM TasksTimestamps
-        WHERE task_id IN ({placeholder}) ;
+        WHERE task_id IN ({placeholder})
+        ORDER BY timestamp;
         """
         res = self.cur.execute(TASK_VIEW_EVENTS_QUERY,[tid for (tid,) in task_ids])
         return [TimestampRow(*row) for row in res.fetchall()]
@@ -246,7 +259,8 @@ class DatabaseManager:
         """
         
         TASKS_VIEW_ALL_EVENTS_QUERY = """
-        SELECT * FROM TasksTimestamps;
+        SELECT * FROM TasksTimestamps
+        ORDER BY timestamp;
         """
         res = self.cur.execute(TASKS_VIEW_ALL_EVENTS_QUERY)
         return [TimestampRow(*row) for row in res.fetchall()]
