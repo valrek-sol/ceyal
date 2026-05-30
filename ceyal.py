@@ -3,6 +3,7 @@
 import argparse
 import sys
 import datetime as dt
+import dateparser
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -14,17 +15,14 @@ console = Console()
 AVAILABLE_PARAMETERS = ["desc", "created", "target", "dead", "elapsed",
                         "active", "start", "pause"]
 
-def parse_datetime(dateactive_t_str):
-    if not dateactive_t_str:
+def parse_datetime(date_str):
+    #i hope the dateparser is light enough ... why reinvent the wheel moment
+    if not date_str:
         return None
     try:
-        return dt.datetime.fromisoformat(dateactive_t_str)
-    except ValueError:
-        try:
-            return dt.datetime.strptime(dateactive_t_str, "%Y-%m-%d")
-        except ValueError:
-            console.print(f"[bold red]Error:[/bold red] Could not parse date '{dateactive_t_str}'. Use 'YYYY-MM-DDTHH:mm:ss.sssZ' or ISO 8601 format.")
-            sys.exit(1)
+        return dateparser.parse(date_str,settings={'TO_TIMEZONE': 'UTC','RETURN_AS_TIMEZONE_AWARE': True}) 
+    except ValueError as e:
+        console.print(f"[bold red]Error: {e} [/bold red] Could not parse date '{date_str}'") 
 
 def handle_add(args, tm):
     t_time = parse_datetime(args.target)
@@ -38,6 +36,8 @@ def handle_add(args, tm):
     console.print(f"  [dim]ID:[/dim] {task.id}")
 
 def handle_list(args, tm):
+    #whole thing is just inefficient, just query according to event_type from db itself, 
+    #it works for now
     tasks = tm.list_all_tasks()
     
     if not tasks:
@@ -63,7 +63,7 @@ def handle_list(args, tm):
             continue
         if args.completed and task.status != TaskStatus.COMPLETED:
             continue
-        if not args.all and task.status == TaskStatus.COMPLETED:
+        if (not args.all or not args.completed) and task.status == TaskStatus.COMPLETED:
             continue
             
         status_str = task.status.value
@@ -152,7 +152,7 @@ def handle_get(args, tm):
 def main():
     parser = argparse.ArgumentParser(
             prog = 'ceyal',
-            description = " ++ ++ Ceyal: Execution Engine ++ ++ "
+            description = " ++ ++ Ceyal : Task Management Engine ++ ++ "
             )
     subparsers = parser.add_subparsers(
             dest = 'command',

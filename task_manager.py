@@ -18,7 +18,7 @@ class Task:
              dead_time=None,
              is_complete=False,
              priority=1,
-             events=[]):
+             events=None):
     
         self.id = id or uuid.uuid4().hex
         self.name = name
@@ -29,7 +29,7 @@ class Task:
         self.dead_time = dead_time
         self.is_complete = is_complete
         self.priority = priority
-        self._events = events
+        self._events = events if events is not None else []
 
     def to_row(self) -> TaskRow :
         return TaskRow(
@@ -51,8 +51,7 @@ class Task:
                 name = row.name,
                 desc = row.description,
                 target_start_time = row.target_start_time,
-                target_time = row.target_time,
-                created_time = row.created_time,
+                target_time = row.target_time, created_time = row.created_time,
                 dead_time = row.dead_time,
                 is_complete = row.is_complete,
                 priority = row.priority,
@@ -97,13 +96,16 @@ class Task:
     @property
     def elapsed_time(self):
         '''
-        Time interval "elapsed" from the very start till "now".
+        Time interval "elapsed" from the very start till "now" or completed timestamp.
         Includes paused time intervals.
         '''
 
         if not self._events: return 0.0
-        
-        return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat((self._events[0].timestamp)))/dt.timedelta(microseconds=1)
+
+        if self.is_complete:
+            return (dt.datetime.fromisoformat((self._events[-1].timestamp))- dt.datetime.fromisoformat((self._events[0].timestamp))).total_seconds()
+        else:
+            return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat((self._events[0].timestamp))).total_seconds()
 
     @property
     def active_time(self):
@@ -122,10 +124,10 @@ class Task:
                 open_interval = dt.datetime.fromisoformat(e.timestamp)
             elif e.event_type in ('pause','complete'):
                 if open_interval:
-                    active_t += (dt.datetime.fromisoformat(e.timestamp) - open_interval)/dt.timedelta(microseconds=1)
+                    active_t += (dt.datetime.fromisoformat(e.timestamp) - open_interval).total_seconds()
                     open_interval = None
         if open_interval:
-            active_t += (dt.datetime.now(dt.timezone.utc) - open_interval)/dt.timedelta(microseconds=1)
+            active_t += (dt.datetime.now(dt.timezone.utc) - open_interval).total_seconds()
 
         return active_t
 

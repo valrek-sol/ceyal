@@ -6,24 +6,30 @@ id : id (uuid4 hex) of the single task
 status* : status of the task
 desc : description of the task
 created_time : task creation timestamp
+target_start_time: task suggested/expected start time
 target_time : task target completion time
 dead_time : final deadline of the task
 elapsed_time* : total time spent from start of the task till now
 active_time* : total time spent actively on the task from the start, excluding paused times
-start_times : array of timestamps of start/resume of tasks
-pause_times : array of timestamps of pause of tasks
+priority : priority of the task , in natural number
+is_complete : task complete or not 
+is_running* : task running? 
 
 
 CURRENT
 +++++++
 
-1. Change Data Structure to Tree / DAG for infinitely stacked tasks (goals, tasks, subtasks)
-2. Change Data Storage to SQLite
-3. Gantt chart representation suitable
-4. Categories (clusters) assignment.
+1. Change Data Storage to SQLite [DONE]                                                         
+2. Provide easy way to enter datetime strings in CLI. [DONE]
+3. Refine the terminal output and args taken in (get -v does nothing extra, list's output is not fine).
+4. make list command use unique queries from database, current is inefficent
+5. Gantt chart representation suitable in gui  
+6. Change Data Structure to Tree / DAG for infinitely stacked tasks (goals, tasks, subtasks)
+7. Categories (clusters) assignment.
 
 FUTURE
 ++++++
+not in any particular order that is 
 
 1. Decentralized offline synchronization system for cross-platform access. Involves app development
 2. notification system 
