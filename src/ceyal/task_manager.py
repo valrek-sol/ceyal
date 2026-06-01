@@ -1,8 +1,8 @@
 import datetime as dt
 from enum import Enum
 import uuid
-from database import DatabaseManager
-from custom_types import TaskRow
+from .database import DatabaseManager
+from .custom_types import TaskRow
 
 class TaskStatus(str, Enum):
     PENDING = "pending" 

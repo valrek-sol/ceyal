@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from task_manager import TaskManager, TaskStatus
+from .task_manager import TaskManager, TaskStatus
 
 console = Console()
 

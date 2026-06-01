@@ -2,7 +2,7 @@ import sqlite3
 import os
 import sys
 from pathlib import Path
-from custom_types import TaskRow, TimestampRow, TaskRelationsRow
+from .custom_types import TaskRow, TimestampRow, TaskRelationsRow
 
 APP_NAME = "ceyal"
 
