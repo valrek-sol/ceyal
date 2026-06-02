@@ -50,9 +50,8 @@ def handle_list(args, tm):
             continue
         if args.completed and task.status != TaskStatus.COMPLETED:
             continue
-        if (not args.all or not args.completed) and task.status == TaskStatus.COMPLETED:
-            continue
-            
+        if task.status == TaskStatus.COMPLETED and not (args.all or args.completed):
+            continue           
         filtered_tasks.append(task)
         
     if not filtered_tasks:
