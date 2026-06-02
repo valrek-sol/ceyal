@@ -1,28 +1,22 @@
 #!/usr/bin/env python3
 
-import argparse
-import sys
 import datetime as dt
+import argparse
 import dateparser
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 
 from .task_manager import TaskManager, TaskStatus
-
-console = Console()
+from . import render_cli
 
 AVAILABLE_PARAMETERS = ["desc", "created", "target", "dead", "elapsed",
                         "active", "start", "pause"]
 
 def parse_datetime(date_str):
-    #i hope the dateparser is light enough ... why reinvent the wheel moment
     if not date_str:
         return None
     try:
-        return dateparser.parse(date_str,settings={'TO_TIMEZONE': 'UTC','RETURN_AS_TIMEZONE_AWARE': True}) 
+        return dateparser.parse(date_str, settings={'TO_TIMEZONE': 'UTC','RETURN_AS_TIMEZONE_AWARE': True}) 
     except ValueError as e:
-        console.print(f"[bold red]Error: {e} [/bold red] Could not parse date '{date_str}'") 
+        render_cli.render_text(f"Error: {e} | Could not parse date '{date_str}'") 
 
 def handle_add(args, tm):
     t_time = parse_datetime(args.target)
@@ -32,29 +26,22 @@ def handle_add(args, tm):
     task = tm.add(name=args.name, target_start_time=ts_time, target_time=t_time,
                   desc=args.desc, dead_time=d_time, priority=args.priority)
     
-    console.print(f"[bold green] Task Added:[/bold green] {task.name}")
-    console.print(f"  [dim]ID:[/dim] {task.id}")
+    render_cli.render_task_action(task, "Added")
 
 def handle_list(args, tm):
-    #whole thing is just inefficient, just query according to event_type from db itself, 
-    #it works for now
-    tasks = tm.list_all_tasks()
+    tasks_rows = tm.list_all_tasks()
     
-    if not tasks:
-        console.print("[yellow]No tasks found.[/yellow]")
+    if not tasks_rows:
+        render_cli.render_text("No tasks found.")
         return
 
-    table = Table(title="list of tasks", title_style="bold magenta", border_style="dim")
+    time_now = dt.datetime.now(dt.timezone.utc)
+    filtered_tasks = []
     
-    table.add_column("ID", style="dim", width=7)
-    table.add_column("Status", justify="center", width=12)
-    table.add_column("Name", style="bold white")
-    table.add_column("Active Time", justify="right", style="cyan")
-    
-    count = 0
-    for row in tasks:
+    for row in tasks_rows:
         task = tm.get_task(row.id)
         
+        # Apply filters
         if args.pending and task.status != TaskStatus.PENDING:
             continue
         if args.ongoing and task.status != TaskStatus.ONGOING:
@@ -66,88 +53,56 @@ def handle_list(args, tm):
         if (not args.all or not args.completed) and task.status == TaskStatus.COMPLETED:
             continue
             
-        status_str = task.status.value
-        if task.status == TaskStatus.ONGOING:
-            state = f"[bold blue]{status_str}[/bold blue]"
-        elif task.status == TaskStatus.COMPLETED:
-            state = f"[bold green]{status_str}[/bold green]"
-        elif task.status == TaskStatus.PENDING:
-            state = f"[bold red]{status_str}[/bold red]"
-        else:
-            state = f"[bold yellow]{status_str}[/bold yellow]"
-            
-        if task.active_time > 0:
-            active_mins = task.active_time / 60
-            active_t_str = f"{active_mins:.1f} m"
-        else:
-            active_t_str = "-"
-            
-        table.add_row(task.id[:6], state, task.name, active_t_str)
-        count += 1
+        filtered_tasks.append(task)
         
-    if count == 0:
-        console.print("[yellow]No tasks match your filters.[/yellow]")
+    if not filtered_tasks:
+        render_cli.render_text("No tasks match your filters.")
     else:
-        console.print(table)
+        render_cli.render_list(filtered_tasks,time_now)
 
 def handle_remove(args, tm):
     if args.all:
-        confirm = console.input("[bold red]Are you sure you want to DELETE ALL tasks? (y/n): [/bold red]")
+        # Using render_cli's console to maintain formatting consistency
+        confirm = render_cli.console.input("[bold red]Are you sure you want to DELETE ALL tasks? (y/n): [/bold red]")
         if confirm.lower() == 'y':
             all_rows = tm.list_all_tasks()
             for row in all_rows:
                 tm.remove_by_id(row.id)
-            console.print("[bold green]All tasks cleared.[/bold green]")
+            render_cli.render_text("All tasks cleared.")
     else:
         if not args.id:
-            console.print("[bold red]Error:[/bold red] Provide an ID or use --all")
+            render_cli.render_text("Error: Provide an ID or use --all")
             return
         try:
             task = tm.remove_by_id(args.id)
-            console.print(f"[bold green]Removed task:[/bold green] {task.name}")
+            render_cli.render_text(f"Removed task: {task.name} ({task.id[:6]})")
         except (KeyError, ValueError) as e:
-            console.print(f"[bold red]Error:[/bold red] {e}")
+            render_cli.render_text(f"Error: {e}")
 
 def handle_state_change(args, tm):
     try:
         if args.command == 'start':
             task = tm.start_task(args.id)
-            console.print(f"[bold blue]▶ Started:[/bold blue] {task.name} ({task.id[:6]})")
+            render_cli.render_task_action(task, "Started")
         elif args.command == 'pause':
             task = tm.pause_task(args.id)
-            console.print(f"[bold yellow]⏸ Paused:[/bold yellow] {task.name} ({task.id[:6]})")
+            render_cli.render_task_action(task, "Paused")
         elif args.command == 'resume':
             task = tm.resume_task(args.id)
-            console.print(f"[bold blue]▶ Resumed:[/bold blue] {task.name} ({task.id[:6]})")
+            render_cli.render_task_action(task, "Resumed")
         elif args.command == 'complete':
             task = tm.complete_task(args.id)
-            console.print(f"[bold green]✔ Completed:[/bold green] {task.name} ({task.id[:6]})")
+            render_cli.render_task_action(task, "Completed")
     except Exception as e:
-         console.print(f"[bold red]Error:[/bold red] {e}")
+         render_cli.render_text(f"Error: {e}")
 
 def handle_get(args, tm):
     try:
         task = tm.get_task(args.id)
-        
-        details = [
-            f"[dim]ID:[/dim] {task.id}",
-            f"[dim]Status:[/dim] [bold]{task.status.value.upper()}[/bold]",
-            f"[dim]Created:[/dim] {task.created_time}",
-            f"[dim]Target:[/dim] {task.target_time}",
-            f"[dim]Dead:[/dim] {task.dead_time or 'None'}",
-            f"[dim]Active Time:[/dim] {task.active_time:.1f} secs",
-            f"[dim]Elapsed Time:[/dim] {task.elapsed_time:.1f} secs"
-        ]
-        
-        if task.desc:
-            details.insert(2, f"[dim]Description:[/dim] {task.desc}")
-            
-        panel = Panel("\n".join(details), title=f"[bold cyan]{task.name}[/bold cyan]", border_style="cyan", expand=False)
-        console.print(panel)
-        
+        v_level = args.verbose if args.verbose else 0
+        render_cli.render_task_detail(task, verbosity=v_level)
     except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-
+        render_cli.render_text(f"Error: {e}")
 
 def main():
     parser = argparse.ArgumentParser(

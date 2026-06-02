@@ -1,0 +1,33 @@
+#default theme configuration for ceyal
+
+[colors]
+none = "dim grey50"
+relax = "dim white"
+low = "rgb(255,235,205)"
+med = "dark_orange"
+high = "orange3"
+critical = "indian_red"
+critical_grace = "bold red"
+fatality = "dark_red"
+
+[icons]
+header_status = "◎"
+pending = "⬡"
+ongoing = "▶"
+paused = "⏸"
+completed = "⬢"
+
+[warnings]
+high = "!"
+critical = "⚠"
+critical_grace = "⚠"
+fatality = "☠"
+
+[animations]
+blink_ongoing = true
+
+[table]
+box_style = "MINIMAL"   # Options: MINIMAL, ROUNDED, SIMPLE, HEAVY, NONE ... check rich.box's docs
+border_style = "dim"
+padding = [0, 1]        # Y, X padding
+expand = false          # Whether the table expands to fill the terminal width

@@ -1,14 +1,8 @@
 import datetime as dt
-from enum import Enum
 import uuid
 from .database import DatabaseManager
-from .custom_types import TaskRow
+from .custom_types import TaskRow, TaskStatus, TaskUrgency
 
-class TaskStatus(str, Enum):
-    PENDING = "pending" 
-    ONGOING = "ongoing" 
-    PAUSED  = "paused"
-    COMPLETED = "completed"
 
 class Task:
     def __init__(self, id=None, name="0", desc=None,
@@ -71,6 +65,53 @@ class Task:
         if self.is_running: return TaskStatus.ONGOING
         if not self._events: return TaskStatus.PENDING
         return TaskStatus.PAUSED
+
+    def time_ratio(self,time_now):
+        if isinstance(self.target_time , str):
+            target_dt = dt.datetime.fromisoformat(self.target_time)
+        if isinstance(self.dead_time , str):
+            dead_dt = dt.datetime.fromisoformat(self.dead_time)
+        if isinstance(self.target_start_time , str):
+            target_start_dt = dt.datetime.fromisoformat(self.target_start_time)
+        if target_dt == target_start_dt:
+            return 0.0
+        tr = (target_dt - time_now)/(target_dt - target_start_dt)
+        return tr
+
+    def urgency(self,time_now):
+        #temporary fix, 
+        #need to work out the conversion-usage of datetime - str objects
+        #perhaps we can make both str and dt objects available at a node,
+        #but store only str in db...
+
+        if isinstance(self.target_time , str):
+            target_dt = dt.datetime.fromisoformat(self.target_time)
+        if isinstance(self.dead_time , str):
+            dead_dt = dt.datetime.fromisoformat(self.dead_time)
+        
+        if self.is_complete:
+            return TaskUrgency.NONE
+
+        if time_now > target_dt:
+            if dead_dt and time_now < dead_dt:
+                return TaskUrgency.CRITICAL_GRACE
+            return TaskUrgency.FATALITY
+
+        time_ratio = self.time_ratio(time_now)
+
+        if time_ratio <= 0.05:
+            return TaskUrgency.CRITICAL
+
+        if time_ratio <= 0.25: 
+            return TaskUrgency.MED if self.is_running else TaskUrgency.HIGH
+            
+        if time_ratio <= 0.5: 
+            return TaskUrgency.LOW if self.is_running else TaskUrgency.MED
+
+        if time_ratio <= 0.75:
+            return TaskUrgency.RELAX if self.is_running else TaskUrgency.LOW
+
+        return TaskUrgency.RELAX
 
     def start(self):
         if self.status != TaskStatus.PENDING:
