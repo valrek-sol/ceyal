@@ -118,13 +118,15 @@ def render_task_detail(task, verbosity: int, time_now=None):
         tst = _parse_time(task.target_start_time)
         details.append(f"Target: {tt.strftime('%Y-%m-%d %H:%M %Z') if tt else 'None'}")
         details.append(f"Start Target: {tst.strftime('%Y-%m-%d %H:%M %Z') if tst else 'None'}")
+        det = _parse_time(task.dead_time)
+        if det is not None:
+            details.append(f"Dead: {det.strftime('%Y-%m-%d %H:%M %Z') if tt else 'None'}")
 
     # Level 2 (-vv) -> RAW values
     if verbosity >= 2:
-        details.append("--- RAW DATA ---")
+        details.append(f"Created: {task.created_time}")
         details.append(f"Time Ratio: {task.time_ratio(time_now):.4f}")
         details.append(f"Urgency: {urgency.name}")
-        details.append(f"Created: {task.created_time}")
         details.append(f"Last Pause: {task.last_pause_time}")
         details.append(f"Started: {task.start_time}")
 
