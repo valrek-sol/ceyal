@@ -87,7 +87,6 @@ def render_list(tasks, time_now=None):
         )
         
     console.print(table)
-
 def render_task_detail(task, verbosity: int, time_now=None):
     if not time_now:
         time_now = dt.datetime.now(dt.timezone.utc)
@@ -108,27 +107,33 @@ def render_task_detail(task, verbosity: int, time_now=None):
     details.append(f"Deadline: {_humanize_deadline(task.target_time, task.dead_time, time_now)}")
     details.append(f"Priority: {task.priority}")
     
+    def _fmt_time(t_val):
+        parsed = _parse_time(t_val)
+        if not parsed:
+            return "None"
+        utc_str = parsed.strftime('%Y-%m-%d %H:%M %Z')
+        human_str = humanize.naturaltime(parsed, when=time_now)
+        local_str = parsed.astimezone().strftime('%Y-%m-%d %H:%M %Z')
+        return f"{utc_str} ({human_str})\n\t\tLocal: {local_str}\n"
+
     # Level 1 (-v)
     if verbosity >= 1:
         details.append(f"Status: {task.status.value.upper()}")
         details.append(f"Active: {task.active_time:.1f}s")
         details.append(f"Elapsed: {task.elapsed_time:.1f}s")
         
-        tt = _parse_time(task.target_time)
-        tst = _parse_time(task.target_start_time)
-        details.append(f"Target: {tt.strftime('%Y-%m-%d %H:%M %Z') if tt else 'None'}")
-        details.append(f"Start Target: {tst.strftime('%Y-%m-%d %H:%M %Z') if tst else 'None'}")
-        det = _parse_time(task.dead_time)
-        if det is not None:
-            details.append(f"Dead: {det.strftime('%Y-%m-%d %H:%M %Z') if tt else 'None'}")
+        details.append(f"Target: {_fmt_time(task.target_time)}")
+        details.append(f"Start Target: {_fmt_time(task.target_start_time)}")
+        if task.dead_time is not None:
+            details.append(f"Dead: {_fmt_time(task.dead_time)}")
 
     # Level 2 (-vv) -> RAW values
     if verbosity >= 2:
-        details.append(f"Created: {task.created_time}")
+        details.append(f"Created: {_fmt_time(task.created_time)}")
         details.append(f"Time Ratio: {task.time_ratio(time_now):.4f}")
         details.append(f"Urgency: {urgency.name}")
-        details.append(f"Last Pause: {task.last_pause_time}")
-        details.append(f"Started: {task.start_time}")
+        details.append(f"Last Pause: {_fmt_time(task.last_pause_time)}")
+        details.append(f"Started: {_fmt_time(task.start_time)}")
 
     # Render Panel
     panel_content = "\n".join(details)
