@@ -22,16 +22,16 @@ def _humanize_deadline(target_time: str, dead_time: str, time_now: dt.datetime) 
         return "-"
 
     if time_now <= target_dt:
-        return humanize.naturaltime(target_dt - time_now)
+        return humanize.naturaltime(target_dt, when=time_now)
     
     active_deadline = dead_dt if dead_dt else target_dt
 
     if active_deadline and time_now <= active_deadline:
-        return humanize.naturaltime(active_deadline - time_now)
+        return humanize.naturaltime(active_deadline, when=time_now)
     
     reference = dead_dt if dead_dt else target_dt
     fatality = theme.get_warning('FATALITY')
-    return f"{fatality} {humanize.naturaltime(time_now - reference)}"
+    return f"{fatality} {humanize.naturaltime(reference, when=time_now)}"
 
 def _get_status_icon(status: TaskStatus) -> str:
     icons = {
@@ -76,7 +76,7 @@ def render_list(tasks, time_now=None):
         name_display = f"{task.name} {warning_sym}".strip()
         deadline_str = _humanize_deadline(task.target_time, task.dead_time, time_now)
         
-        row_style = f"{color} strike dim" if task.status == TaskStatus.COMPLETED else color
+        row_style = f"{color} strike" if task.status == TaskStatus.COMPLETED else color
             
         table.add_row(
             icon, 
@@ -102,15 +102,14 @@ def render_task_detail(task, verbosity: int, time_now=None):
     
     details = []
     
-    # Level 0 (No verbosity)
-    details.append(f"ID: {task.id[:6]}")
+    # Base details (Always shown)
+    details.append(f"ID: {task.id if verbosity >= 1 else task.id[:6]}")
     if task.desc: details.append(f"Desc: {task.desc}")
     details.append(f"Deadline: {_humanize_deadline(task.target_time, task.dead_time, time_now)}")
     details.append(f"Priority: {task.priority}")
     
     # Level 1 (-v)
     if verbosity >= 1:
-        details[0] = f"ID: {task.id}" # Expand ID
         details.append(f"Status: {task.status.value.upper()}")
         details.append(f"Active: {task.active_time:.1f}s")
         details.append(f"Elapsed: {task.elapsed_time:.1f}s")

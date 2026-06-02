@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 from .database import DatabaseManager
-from .custom_types import TaskRow, TaskStatus, TaskUrgency
+from .custom_types import TaskRow, TaskStatus, TaskUrgency, TimestampRow
 
 
 class Task:
@@ -67,12 +67,9 @@ class Task:
         return TaskStatus.PAUSED
 
     def time_ratio(self,time_now):
-        if isinstance(self.target_time , str):
-            target_dt = dt.datetime.fromisoformat(self.target_time)
-        if isinstance(self.dead_time , str):
-            dead_dt = dt.datetime.fromisoformat(self.dead_time)
-        if isinstance(self.target_start_time , str):
-            target_start_dt = dt.datetime.fromisoformat(self.target_start_time)
+        target_dt = dt.datetime.fromisoformat(self.target_time) if isinstance(self.target_time, str) else self.target_time
+        target_start_dt = dt.datetime.fromisoformat(self.target_start_time) if isinstance(self.target_start_time, str) else self.target_start_time
+            
         if target_dt == target_start_dt:
             return 0.0
         tr = (target_dt - time_now)/(target_dt - target_start_dt)
@@ -84,10 +81,10 @@ class Task:
         #perhaps we can make both str and dt objects available at a node,
         #but store only str in db...
 
-        if isinstance(self.target_time , str):
-            target_dt = dt.datetime.fromisoformat(self.target_time)
-        if isinstance(self.dead_time , str):
-            dead_dt = dt.datetime.fromisoformat(self.dead_time)
+        target_dt = dt.datetime.fromisoformat(self.target_time) if isinstance(self.target_time, str) else self.target_time
+        dead_dt = None
+        if self.dead_time:
+            dead_dt = dt.datetime.fromisoformat(self.dead_time) if isinstance(self.dead_time, str) else self.dead_time
         
         if self.is_complete:
             return TaskUrgency.NONE
@@ -222,24 +219,32 @@ class TaskManager:
     def start_task(self, partial_id):
         task = self._resolve_task(partial_id)
         event_type , timestamp = task.start()
-        self.db.task_event_entry([(task.id,)],event_type, timestamp.isoformat())
+        ts_iso = timestamp.isoformat()
+        self.db.task_event_entry([(task.id,)],event_type, ts_iso)
+        task._events.append(TimestampRow(event_id=None, task_id=task.id, event_type=event_type, timestamp=ts_iso))
         return task
 
     def pause_task(self, partial_id):
         task = self._resolve_task(partial_id)
         event_type , timestamp = task.pause()
-        self.db.task_event_entry([(task.id,)],event_type, timestamp.isoformat())
+        ts_iso = timestamp.isoformat()
+        self.db.task_event_entry([(task.id,)],event_type, ts_iso)
+        task._events.append(TimestampRow(event_id=None, task_id=task.id, event_type=event_type, timestamp=ts_iso))
         return task
 
     def resume_task(self, partial_id):
         task = self._resolve_task(partial_id)
         event_type , timestamp = task.resume()
-        self.db.task_event_entry([(task.id,)],event_type, timestamp.isoformat())
+        ts_iso = timestamp.isoformat()
+        self.db.task_event_entry([(task.id,)],event_type, ts_iso)
+        task._events.append(TimestampRow(event_id=None, task_id=task.id, event_type=event_type, timestamp=ts_iso))
         return task
 
     def complete_task(self, partial_id):
         task = self._resolve_task(partial_id)
         event_type , timestamp = task.complete()
-        self.db.task_event_entry([(task.id,)],event_type, timestamp.isoformat())
+        ts_iso = timestamp.isoformat()
+        self.db.task_event_entry([(task.id,)],event_type, ts_iso)
         self.db.modify_task([(task.id,)],[("is_complete",True)])
+        task._events.append(TimestampRow(event_id=None, task_id=task.id, event_type=event_type, timestamp=ts_iso))
         return task
