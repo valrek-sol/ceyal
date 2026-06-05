@@ -14,7 +14,7 @@ def parse_datetime(date_str):
     if not date_str:
         return None
     try:
-        return dateparser.parse(date_str, settings={'TO_TIMEZONE': 'UTC','RETURN_AS_TIMEZONE_AWARE': True}) 
+        return dateparser.parse(date_str, settings={'TO_TIMEZONE': 'UTC','RETURN_AS_TIMEZONE_AWARE': True,'PREFER_DATES_FROM': 'future'}) 
     except ValueError as e:
         render_cli.render_text(f"Error: {e} | Could not parse date '{date_str}'") 
 

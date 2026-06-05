@@ -31,3 +31,8 @@ box_style = "MINIMAL"   # Options: MINIMAL, ROUNDED, SIMPLE, HEAVY, NONE ... che
 border_style = "dim"
 padding = [0, 1]        # Y, X padding
 expand = false          # Whether the table expands to fill the terminal width
+
+[panel]
+box_style = "ROUNDED"
+padding = [0,1]
+expand = false

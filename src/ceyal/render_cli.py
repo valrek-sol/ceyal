@@ -141,6 +141,6 @@ def render_task_detail(task, verbosity: int, time_now=None):
         panel_content, 
         title=title_text, 
         border_style=color,
-        expand=False
+        **theme.get_panel_kwargs()
     )
     console.print(panel)

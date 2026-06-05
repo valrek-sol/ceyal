@@ -2,15 +2,15 @@ import os
 import sys
 from pathlib import Path
 import tomllib
-import rich.box
+from rich import box
 
 BOX_MAP = {
-    "MINIMAL": rich.box.MINIMAL,
-    "ROUNDED": rich.box.ROUNDED,
-    "SIMPLE": rich.box.SIMPLE,
-    "HEAVY": rich.box.HEAVY,
-    "NONE": None
+    name: getattr(box, name)
+    for name in dir(box)
+    if name.isupper() and isinstance(getattr(box, name), box.Box)
 }
+
+BOX_MAP["NONE"] = None
 
 APP_NAME = "ceyal"
 
@@ -92,6 +92,18 @@ def get_table_kwargs() -> dict:
     return {
         "border_style": tbl_config.get("border_style", "dim"),
         "padding": tuple(padding_val), # Rich expects a tuple for padding
-        "box": BOX_MAP.get(box_str, rich.box.MINIMAL),
+        "box": BOX_MAP.get(box_str, box.MINIMAL),
+        "expand": tbl_config.get("expand", False)
+    }
+
+def get_panel_kwargs() -> dict:
+    tbl_config = _THEME.get("panel", {})
+    
+    padding_val = tbl_config.get("padding", [0, 1])
+    box_str = tbl_config.get("box_style", "MINIMAL").upper()
+    
+    return {
+        "padding": tuple(padding_val), # Rich expects a tuple for padding
+        "box": BOX_MAP.get(box_str, box.ROUNDED),
         "expand": tbl_config.get("expand", False)
     }
